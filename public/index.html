@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LuaProtect — Bảo vệ Script Lua</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#07070c; --bg2:#101018; --bg3:#181822; --border:#2a2a38;
+      --text:#f0f0f5; --muted:#9494a8; --accent:#8b5cf6; --cyan:#22d3ee;
+      --green:#34d399; --red:#f87171;
+    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .glow{position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:radial-gradient(ellipse 55% 40% at 15% 0%,rgba(139,92,246,.12),transparent),
+                 radial-gradient(ellipse 40% 30% at 90% 100%,rgba(34,211,238,.06),transparent)}
+    .app{position:relative;z-index:1;max-width:820px;margin:0 auto;padding:28px 18px 70px}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+    .logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);
+      display:grid;place-items:center;font-size:1.2rem;box-shadow:0 0 24px rgba(139,92,246,.4)}
+    h1{font-family:'Space Grotesk',sans-serif;font-size:1.5rem;font-weight:700}
+    .sub{color:var(--muted);font-size:.92rem;margin-top:2px}
+    .card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:16px}
+    label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:6px}
+    input,textarea{width:100%;padding:11px 13px;background:var(--bg);border:1px solid var(--border);
+      border-radius:10px;color:var(--text);font-size:.92rem;font-family:inherit;outline:none}
+    input:focus,textarea:focus{border-color:var(--accent)}
+    textarea{min-height:220px;font-family:'JetBrains Mono',monospace;font-size:.82rem;line-height:1.5;resize:vertical}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:600px){.row{grid-template-columns:1fr}}
+    .fg{margin-bottom:14px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;
+      border-radius:11px;font-weight:600;font-size:.9rem;border:none;cursor:pointer;font-family:inherit;
+      background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;box-shadow:0 4px 20px rgba(139,92,246,.3);
+      width:100%;transition:all .2s}
+    .btn:hover{transform:translateY(-1px)}
+    .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text);box-shadow:none;width:auto;padding:8px 12px;font-size:.8rem}
+    .result{display:none}
+    .result.show{display:block}
+    .link-box{background:#0a0a10;border:1px solid var(--border);border-radius:10px;padding:12px;
+      font-family:'JetBrains Mono',monospace;font-size:.78rem;word-break:break-all;margin-bottom:8px;color:#a5b4fc}
+    .tag{font-size:.72rem;color:var(--cyan);margin-bottom:4px;font-weight:600}
+    .note{font-size:.84rem;color:var(--muted);line-height:1.55;margin-top:12px}
+    .note strong{color:var(--green)}
+    .err{color:var(--red);font-size:.85rem;margin-top:8px;display:none}
+    .toast{position:fixed;bottom:20px;right:20px;background:var(--bg3);border:1px solid var(--border);
+      padding:11px 16px;border-radius:10px;font-size:.86rem;z-index:50;display:none}
+    .toast.show{display:block}
+  </style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="app">
+    <header>
+      <div class="logo">🔒</div>
+      <div>
+        <h1>LuaProtect</h1>
+        <div class="sub">Dán script → link có mật khẩu · Roblox vẫn load bình thường</div>
+      </div>
+    </header>
+
+    <div class="card" id="formCard">
+      <div class="fg">
+        <label>Tiêu đề (tuỳ chọn)</label>
+        <input id="title" placeholder="My cool script" />
+      </div>
+      <div class="row">
+        <div class="fg">
+          <label>Mật khẩu xem trên web *</label>
+          <input id="password" type="password" placeholder="Tối thiểu 3 ký tự" />
+        </div>
+        <div class="fg">
+          <label>Ghi chú (tuỳ chọn)</label>
+          <input id="note" placeholder="Chỉ hiện trên trang xem" />
+        </div>
+      </div>
+      <div class="fg">
+        <label>Script Lua *</label>
+        <textarea id="script" placeholder="print('Hello from protected script')"></textarea>
+      </div>
+      <button class="btn" id="btnCreate">Tạo link bảo vệ</button>
+      <p class="err" id="err"></p>
+    </div>
+
+    <div class="card result" id="result">
+      <h2 style="font-size:1.1rem;margin-bottom:14px;font-family:'Space Grotesk',sans-serif">✅ Đã tạo</h2>
+
+      <div class="tag">LINK XEM (cần mật khẩu trên trình duyệt)</div>
+      <div class="link-box" id="viewUrl"></div>
+      <button class="btn btn-ghost" onclick="copy('viewUrl')">Copy link xem</button>
+
+      <div style="height:16px"></div>
+      <div class="tag">RAW URL CHO ROBLOX (HttpGet / loadstring)</div>
+      <div class="link-box" id="rawUrl"></div>
+      <button class="btn btn-ghost" onclick="copy('rawUrl')">Copy raw URL</button>
+
+      <div style="height:16px"></div>
+      <div class="tag">CODE MẪU TRONG ROBLOX</div>
+      <div class="link-box" id="rbxCode"></div>
+      <button class="btn btn-ghost" onclick="copy('rbxCode')">Copy code Roblox</button>
+
+      <p class="note">
+        <strong>Cách hoạt động:</strong><br>
+        • Người khác mở <em>link xem</em> trên Chrome → phải nhập mật khẩu mới thấy script.<br>
+        • Trong Roblox dùng <em>raw URL</em> (có key) với <code>HttpGet</code> + <code>loadstring</code> → chạy bình thường, không hỏi mật khẩu.<br>
+        • Giữ raw URL kín — ai có raw URL + key vẫn lấy được script.
+      </p>
+      <button class="btn" style="margin-top:16px" onclick="location.reload()">Tạo script khác</button>
+    </div>
+  </div>
+  <div class="toast" id="toast">Đã copy</div>
+
+  <script>
+    function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+    function copy(id){
+      const text=document.getElementById(id).textContent;
+      navigator.clipboard.writeText(text).then(()=>toast('Đã copy')).catch(()=>toast('Copy lỗi'));
+    }
+
+    document.getElementById('btnCreate').onclick=async()=>{
+      const script=document.getElementById('script').value;
+      const password=document.getElementById('password').value;
+      const title=document.getElementById('title').value;
+      const note=document.getElementById('note').value;
+      const err=document.getElementById('err');
+      err.style.display='none';
+      const btn=document.getElementById('btnCreate');
+      btn.disabled=true;btn.textContent='Đang tạo...';
+      try{
+        const r=await fetch('/api/create',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({script,password,title,note})
+        });
+        const d=await r.json();
+        if(!r.ok) throw new Error(d.error||'Lỗi');
+        document.getElementById('viewUrl').textContent=d.viewUrl;
+        document.getElementById('rawUrl').textContent=d.rawUrl;
+        document.getElementById('rbxCode').textContent=d.robloxExample;
+        document.getElementById('result').classList.add('show');
+        document.getElementById('formCard').style.display='none';
+        toast('Tạo thành công');
+      }catch(e){
+        err.textContent=e.message;err.style.display='block';
+      }finally{
+        btn.disabled=false;btn.textContent='Tạo link bảo vệ';
+      }
+    };
+  </script>
+</body>
+</html>
